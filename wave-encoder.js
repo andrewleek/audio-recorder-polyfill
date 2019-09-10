@@ -4,6 +4,12 @@ module.exports = function () {
   var BYTES_PER_SAMPLE = 2
 
   var recorded = []
+  let sampleRate = 44100
+
+  function init(config)
+  {
+    if(config.sampleRate) {sampleRate = config.sampleRate};
+  }
 
   function encode (buffer) {
     var length = buffer.length
@@ -23,7 +29,7 @@ module.exports = function () {
     recorded.push(data)
   }
 
-  function dump (sampleRate) {
+  function dump () {
     var bufferLength = recorded.length ? recorded[0].length : 0
     var length = recorded.length * bufferLength
     var wav = new Uint8Array(44 + length)
@@ -61,14 +67,24 @@ module.exports = function () {
     }
 
     recorded = []
+
     postMessage(wav.buffer, [wav.buffer])
   }
 
-  onmessage = function (e) {
-    if (e.data[0] === 'encode') {
-      encode(e.data[1])
-    } else {
-      dump(e.data[1])
+  onmessage = function (e) 
+  {
+    switch (e.data.cmd) {
+      case 'init':
+        init(e.data.config);
+        break;
+
+      case 'encode':
+        encode(e.data.payload);
+        break;
+
+      case 'dump':
+        dump();
+        break;
     }
   }
 }
