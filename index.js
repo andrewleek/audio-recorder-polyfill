@@ -46,6 +46,10 @@ function MediaRecorder (stream) {
   this.encoder = createWorker(MediaRecorder.encoder)
 
   var recorder = this
+
+  if(!recorder.encoderConfig.sampleRate) {recorder.encoderConfig.sampleRate = 44100;}
+  recorder.encoder.postMessage({cmd: 'init', config: recorder.encoderConfig});
+
   this.encoder.addEventListener('message', function (e) {
     var event = new Event('dataavailable')
     event.data = new Blob([e.data], { type: recorder.mimeType })
@@ -64,6 +68,12 @@ MediaRecorder.prototype = {
   mimeType: 'audio/wav',
 
   /**
+   * Settings to initialize the encoder with.
+   * @type {object}
+   */
+  encoderConfig: {},
+
+  /**
    * Begins recording media.
    *
    * @param {number} [timeslice] The milliseconds to record into each `Blob`.
@@ -78,6 +88,9 @@ MediaRecorder.prototype = {
    * })
    */
   start: function start (timeslice) {
+    /**
+      Create a clone of stream and start recording
+    */
     if (this.state !== 'inactive') {
       return this.em.dispatchEvent(error('start'))
     }
@@ -97,9 +110,7 @@ MediaRecorder.prototype = {
     var recorder = this
     processor.onaudioprocess = function (e) {
       if (recorder.state === 'recording') {
-        recorder.encoder.postMessage([
-          'encode', e.inputBuffer.getChannelData(0)
-        ])
+        recorder.encoder.postMessage({cmd: 'encode', payload: e.inputBuffer.getChannelData(0)})
       }
     }
 
@@ -128,6 +139,9 @@ MediaRecorder.prototype = {
    * })
    */
   stop: function stop () {
+    /**
+      Stop stream and end cloned stream tracks
+    */
     if (this.state === 'inactive') {
       return this.em.dispatchEvent(error('stop'))
     }
@@ -193,7 +207,7 @@ MediaRecorder.prototype = {
       return this.em.dispatchEvent(error('requestData'))
     }
 
-    return this.encoder.postMessage(['dump', context.sampleRate])
+    return this.encoder.postMessage({cmd: 'dump'})
   },
 
   /**
